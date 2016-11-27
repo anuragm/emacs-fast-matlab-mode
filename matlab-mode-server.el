@@ -33,6 +33,11 @@
 ;;; Code:
 
 (require 'cl)
+(require 's)
+
+;; Constants
+(defconst matlab--eot ">> "
+  "String sent by MATLAB to signal the end of a response.")
 
 ;; Customizable options.
 (defcustom matlab-server-executable "matlab"
@@ -40,9 +45,12 @@
   :group 'matlab-server)
 
 (defcustom matlab-server-buffer-name "*matlab-server*"
-  "Name of the buffer for MATLAB process. Set nil to disable process buffer."
+  "Name of the buffer for MATLAB process.  Set nil to disable process buffer."
   :group 'matlab-server
   :options '"*matlab*")
+
+(defcustom matlab-server-toolbox-location ""
+  "Location of the toolbox for MATLAB server.")
 
 ;; Local variables.
 (defvar matlab-process-running nil
@@ -73,7 +81,7 @@
 
 ;; A function to kill server process if running.
 (defun matlab-kill-server()
-  "Kills the MATLAB server, if running."
+  "Kill the MATLAB server, if running."
   (interactive)
   (when matlab-process-running
     (delete-process matlab-process)
