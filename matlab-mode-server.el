@@ -2,11 +2,11 @@
 ;;
 ;; Copyright © 2016 Anurag Mishra
 ;;
-;; Author: Anurag Mishra
-;; URL: https://github.com/anuragm/matlab-mode
-;; Version: 1.0.0
-;; Keywords: programming, matlab
-;; Package-Requires: ((cl-lib "1.0") (dash "2.12"))
+;; Author           : Anurag Mishra
+;; URL              : https://github.com/anuragm/matlab-mode
+;; Version          : 1.0.0
+;; Keywords         : programming
+;; Package-Requires : ((cl-lib "1.0") (dash "2.12"))
 ;; This file is not part of GNU Emacs.
 
 ;;; Commentary:
@@ -49,9 +49,10 @@
   :group 'matlab-server
   :options '"*matlab*")
 
-(defcustom matlab-server-toolbox-location ""
+(defcustom matlab-server-toolbox-location
+  (expand-file-name "toolbox" (file-name-directory load-file-name))
   "Location of the toolbox for MATLAB server."
-    :group 'matlab-server)
+  :group 'matlab-server)
 
 ;; Local variables.
 (defvar matlab-process-running nil
@@ -100,60 +101,62 @@
         (push complete-response matlab-output-list))))
   (setq matlab-output-list (delete "" matlab-output-list)))
 
-  ;; A function to start a server if not running already.
-  (defun matlab-start-server()
-    "Start a MATLAB server process."
-    (interactive)
-    (unless matlab-process-running
-      (message "Starting MATLAB server...")
-      (let ((process-connection-type nil)
-            (process-adaptive-read-buffering nil) process)
-        (setq matlab-process
-              (start-process-shell-command
-               "matlab-process"
-               matlab-server-buffer-name
-               (format "%s -nodesktop"
-                       (shell-quote-argument matlab-server-executable)))))
-      (set-process-query-on-exit-flag matlab-process nil) ; Don't ask on exit.
-      (set-process-filter matlab-process 'matlab--server-process-filter)
-      (setq matlab-process-running t)
-      (setq matlab-output-list nil)
-      (message "MATLAB server started")))
+;; A function to start a server if not running already.
+(defun matlab-start-server()
+  "Start a MATLAB server process."
+  (interactive)
+  (unless matlab-process-running
+    (message "Starting MATLAB server...")
+    (let ((process-connection-type nil)
+          (process-adaptive-read-buffering nil) process)
+      (setq matlab-process
+            (start-process-shell-command
+             "matlab-process"
+             matlab-server-buffer-name
+             (format "%s -nodesktop"
+                     (shell-quote-argument matlab-server-executable)))))
+    (set-process-query-on-exit-flag matlab-process nil) ; Don't ask on exit.
+    (set-process-filter matlab-process 'matlab--server-process-filter)
+    (setq matlab-process-running t)
+    ;;Include toolbox folder.
+    (process-send-string matlab-process (format "addpath('%s')\n" matlab-server-toolbox-location))
+    (setq matlab-output-list nil)
+    (message "MATLAB server started")))
 
-  ;; A function to kill server process if running.
-  (defun matlab-kill-server()
-    "Kill the MATLAB server, if running."
-    (interactive)
-    (when (or matlab-process-running (process-live-p matlab-process))
-      (kill-buffer (process-buffer matlab-process))
-      (delete-process matlab-process))
-    (message "Server killed")
-    (setq matlab-process-running nil)
-    (setq matlab-output-list nil))
+;; A function to kill server process if running.
+(defun matlab-kill-server()
+  "Kill the MATLAB server, if running."
+  (interactive)
+  (when (or matlab-process-running (process-live-p matlab-process))
+    (kill-buffer (process-buffer matlab-process))
+    (delete-process matlab-process))
+  (message "Server killed")
+  (setq matlab-process-running nil)
+  (setq matlab-output-list nil))
 
-  ;;A function to send a command to MATLAB process
-  (cl-defun matlab-process-eval (command)
-    "Evaluate the given COMMAND with the MATLAB process."
-    (unless matlab-process-running
-      (return-from matlab-process-eval))
-    (setq matlab-response-complete nil)
-    (process-send-string matlab-process command))
+;;A function to send a command to MATLAB process
+(cl-defun matlab-process-eval (command)
+  "Evaluate the given COMMAND with the MATLAB process."
+  (unless matlab-process-running
+    (return-from matlab-process-eval))
+  (setq matlab-response-complete nil)
+  (process-send-string matlab-process command))
 
-  ;;A function to get last result.
-  (defun matlab-process-last-result ()
-    "Return the result in MATLAB buffer from last command."
-    (pop matlab-output-list))
+;;A function to get last result.
+(defun matlab-process-last-result ()
+  "Return the result in MATLAB buffer from last command."
+  (pop matlab-output-list))
 
-  (cl-defun matlab-process-eval-and-return (command)
-    "Evaluate the COMMAND with MATLAB process, block, and return the result."
-    (unless matlab-process-running
-      (message "MATLAB server is not running. Please start it.")
-      (return-from matlab-process-eval-and-return))
-    (matlab-process-eval command)
-    ;;wait till result is back
-    (while (not matlab-response-complete)
-      (accept-process-output matlab-process))
-    (pop matlab-output-list))
+(cl-defun matlab-process-eval-and-return (command)
+  "Evaluate the COMMAND with MATLAB process, block, and return the result."
+  (unless matlab-process-running
+    (message "MATLAB server is not running. Please start it.")
+    (return-from matlab-process-eval-and-return))
+  (matlab-process-eval command)
+  ;;wait till result is back
+  (while (not matlab-response-complete)
+    (accept-process-output matlab-process))
+  (pop matlab-output-list))
 
-  (provide 'matlab-mode-server)
+(provide 'matlab-mode-server)
 ;;; matlab-mode-server.el ends here
